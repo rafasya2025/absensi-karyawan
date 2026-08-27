@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Absensi Karyawan - QR Code</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg1:#0b1f28; --bg2:#0f2e3a;
+    --accent:#0ea5a4; --accent2:#0c8281;
+    --card:#ffffff; --ink:#1f2430; --muted:#6b7280; --line:#e5e7eb;
+    --ok:#0ea5a4; --warn:#d97706; --err:#dc2626; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Segoe UI',Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(1100px 600px at 10% -10%, #123642 0%, transparent 60%),
+      radial-gradient(1100px 700px at 110% 10%, #0d2a2a 0%, transparent 55%),
+      linear-gradient(180deg,var(--bg1),var(--bg2));
+    color:var(--ink); min-height:100vh; padding:24px 16px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+  header{text-align:center;color:#fff;margin-bottom:22px;}
+  header h1{margin:4px 0 6px;font-size:26px;font-weight:700;}
+  header p{margin:0;color:#b7ccd1;font-size:13.5px;}
+
+  .tabbar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .tabbtn{
+    flex:1;min-width:150px;padding:12px 10px;border:none;border-radius:12px;
+    background:rgba(255,255,255,.08);color:#dfeff0;font-size:14px;font-weight:600;
+    cursor:pointer;transition:.15s;
+  }
+  .tabbtn.active{background:var(--accent);color:#fff;}
+  .tabsection{display:none;}
+  .tabsection.active{display:block;}
+
+  .panel{
+    background:var(--card);border-radius:var(--radius);padding:22px;
+    box-shadow:0 20px 40px -12px rgba(0,0,0,.4); margin-bottom:18px;
+  }
+  .panel h2{font-size:15px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent2);margin:0 0 16px;}
+  .row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;}
+  @media (max-width:700px){ .row{grid-template-columns:1fr;} }
+  .field label{display:block;font-size:12.5px;font-weight:600;color:#374151;margin-bottom:6px;}
+  input[type=text],input[type=date]{
+    width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;
+  }
+  button{cursor:pointer;border:none;border-radius:10px;font-weight:600;font-size:13.5px;padding:11px 18px;transition:.15s transform;}
+  button:active{transform:scale(.98);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+  .btn-ghost{background:#eefdfc;color:var(--accent2);}
+  .btn-danger{background:#fdecec;color:var(--err);}
+  .btn-small{padding:6px 12px;font-size:12px;}
+  .btn-block{width:100%;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:14px;}
+  thead th{text-align:left;padding:9px 10px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11px;text-transform:uppercase;}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);}
+  tbody tr:hover{background:#f7fefe;}
+  .list-wrap{max-height:380px;overflow-y:auto;}
+  .empty-state{text-align:center;color:var(--muted);padding:26px;font-size:13px;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
+  .pill-masuk{background:#e6fbf7;color:var(--ok);}
+  .pill-keluar{background:#eaf1ff;color:#3457d5;}
+  .pill-belum{background:#f3f4f6;color:var(--muted);}
+
+  /* Scan tab */
+  .scan-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;}
+  @media (max-width:800px){ .scan-grid{grid-template-columns:1fr;} }
+  #videoWrap{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3;}
+  #video{width:100%;height:100%;object-fit:cover;display:block;}
+  .scan-frame{
+    position:absolute;top:50%;left:50%;width:62%;aspect-ratio:1/1;transform:translate(-50%,-50%);
+    border:3px solid rgba(14,165,164,.85);border-radius:14px;pointer-events:none;
+  }
+  .cam-controls{display:flex;gap:8px;margin-top:12px;}
+  .status-banner{
+    padding:16px;border-radius:12px;font-size:14px;font-weight:600;text-align:center;
+    margin-bottom:12px;background:#f4f4f6;color:var(--muted);min-height:22px;
+  }
+  .status-masuk{background:#e6fbf7;color:#0a7a70;}
+  .status-keluar{background:#eaf1ff;color:#2a4bb8;}
+  .status-warn{background:#fff7e6;color:#a05a00;}
+  .status-err{background:#fdecec;color:var(--err);}
+  .recent-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .manual-box{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
+
+  /* QR Modal */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff;border-radius:16px;padding:26px;text-align:center;max-width:320px;width:100%;}
+  .modal-box img{width:220px;height:220px;margin:10px auto;display:block;}
+  .modal-box h3{margin:0 0 4px;font-size:18px;}
+  .modal-box p{margin:0 0 14px;color:var(--muted);font-size:13px;}
+  .modal-actions{display:flex;gap:8px;margin-top:14px;}
+  .modal-actions button{flex:1;}
+
+  .id-cards{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    .id-cards, .id-cards *{visibility:visible;}
+    .id-cards{display:grid !important;grid-template-columns:1fr 1fr;gap:14px;position:absolute;top:0;left:0;width:100%;padding:20px;}
+    .id-card{border:1.5px dashed #999;border-radius:12px;padding:14px;text-align:center;page-break-inside:avoid;}
+    .id-card img{width:130px;height:130px;}
+    .id-card h4{margin:6px 0 2px;font-size:14px;}
+    .id-card p{margin:0;font-size:11px;color:#555;}
+  }
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📋 Absensi Karyawan (QR Code)</h1>
+    <p>Kelola data karyawan, cetak kartu QR, dan catat kehadiran lewat scan kamera — semua tersimpan di browser ini.</p>
+  </header>
+
+  <div class="tabbar">
+    <button class="tabbtn active" data-tab="karyawan">👥 Data Karyawan</button>
+    <button class="tabbtn" data-tab="scan">📷 Scan Absen</button>
+    <button class="tabbtn" data-tab="rekap">📊 Rekap Absensi</button>
+  </div>
+
+  <!-- TAB: DATA KARYAWAN -->
+  <div class="tabsection active" id="tab-karyawan">
+    <div class="panel">
+      <h2>Tambah Karyawan</h2>
+      <div class="row">
+        <div class="field"><label>Nama Karyawan</label><input type="text" id="inputNama" placeholder="cth: Budi Santoso"></div>
+        <div class="field"><label>Departemen (opsional)</label><input type="text" id="inputDept" placeholder="cth: Marketing"></div>
+        <button class="btn-primary" id="btnAddEmp">+ Tambah</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;">Daftar Karyawan <span id="empCount" style="color:var(--muted);font-weight:400;"></span></h2>
+        <button class="btn-ghost btn-small" id="btnPrintCards">🖨️ Cetak Semua Kartu QR</button>
+      </div>
+      <div class="list-wrap">
+        <table>
+          <thead><tr><th>Nama</th><th>Departemen</th><th style="width:180px;">Aksi</th></tr></thead>
+          <tbody id="empTbody"><tr><td colspan="3" class="empty-state">Belum ada karyawan. Tambahkan di atas.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SCAN ABSEN -->
+  <div class="tabsection" id="tab-scan">
+    <div class="panel">
+      <h2>Scan QR Karyawan</h2>
+      <div class="status-banner" id="scanStatus">Arahkan kamera ke QR Code karyawan untuk mulai absen.</div>
+      <div class="scan-grid">
+        <div>
+          <div id="videoWrap">
+            <video id="video" playsinline muted></video>
+            <div class="scan-frame"></div>
+          </div>
+          <div class="cam-controls">
+            <button class="btn-primary btn-block" id="btnStartCam">▶️ Mulai Kamera</button>
+            <button class="btn-danger btn-block" id="btnStopCam" style="display:none;">⏹️ Hentikan Kamera</button>
+          </div>
+          <div class="hint">Catatan: akses kamera butuh koneksi HTTPS atau dibuka lewat <code>localhost</code>. Kalau dibuka langsung sebagai file (file://), sebagian browser (terutama Chrome) akan memblokir kamera — gunakan input manual di bawah sebagai alternatif, atau jalankan lewat server lokal sederhana.</div>
+          <div class="manual-box">
+            <label style="font-size:12.5px;font-weight:600;color:#374151;">Input Manual (jika kamera tidak tersedia)</label>
+            <div class="row" style="grid-template-columns:1fr auto;margin-top:6px;">
+              <input type="text" id="manualId" placeholder="Tempel/ketik kode ID karyawan">
+              <button class="btn-primary" id="btnManualScan">Proses</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 style="margin-top:0;">Scan Terbaru</h2>
+          <div id="recentList"><div class="empty-state">Belum ada aktivitas scan.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: REKAP -->
+  <div class="tabsection" id="tab-rekap">
+    <div class="panel">
+      <div class="row" style="grid-template-columns:auto auto 1fr auto;align-items:end;">
+        <div class="field"><label>Filter Tanggal</label><input type="date" id="filterDate"></div>
+        <button class="btn-ghost" id="btnClearFilter">Semua Tanggal</button>
+        <div></div>
+        <button class="btn-primary" id="btnExportExcel">⬇️ Unduh Excel</button>
+      </div>
+      <div class="list-wrap">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Nama</th><th>Departemen</th><th>Jam Masuk</th><th>Jam Keluar</th><th>Status</th></tr></thead>
+          <tbody id="rekapTbody"><tr><td colspan="6" class="empty-state">Belum ada data absensi.</td></tr></tbody>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:12px;">
+        <button class="btn-danger btn-small" id="btnClearLogs">🗑️ Hapus Semua Riwayat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal-box">
+    <h3 id="qrModalName"></h3>
+    <p id="qrModalDept"></p>
+    <img id="qrModalImg" src="">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnDownloadQR">⬇️ Unduh</button>
+      <button class="btn-danger" id="btnCloseModal">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Printable ID cards -->
+<div class="id-cards" id="idCards"></div>
+
+<script>
+const el = id => document.getElementById(id);
+const LS_EMP = 'absensi_karyawan_v1';
+const LS_LOG = 'absensi_log_v1';
+
+let employees = JSON.parse(localStorage.getItem(LS_EMP) || '[]');
+let logs = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
+
+function saveEmployees(){ localStorage.setItem(LS_EMP, JSON.stringify(employees)); }
+function saveLogs(){ localStorage.setItem(LS_LOG, JSON.stringify(logs)); }
+function genId(){ return 'K' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase(); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function timeStr(){ return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
+/* ---------- TABS ---------- */
+document.querySelectorAll('.tabbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tabsection').forEach(s=>s.classList.remove('active'));
+    btn.classList.add('active');
+    el('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ---------- QR HELPERS ---------- */
+function makeQRDataUrl(text, size){
+  const tempDiv = document.createElement('div');
+  tempDiv.style.display='none';
+  document.body.appendChild(tempDiv);
+  new QRCode(tempDiv, {text: text, width:size||220, height:size||220, correctLevel: QRCode.CorrectLevel.M});
+  let url = '';
+  const canvas = tempDiv.querySelector('canvas');
+  const img = tempDiv.querySelector('img');
+  if(canvas) url = canvas.toDataURL('image/png');
+  else if(img) url = img.src;
+  document.body.removeChild(tempDiv);
+  return url;
+}
+
+/* ---------- EMPLOYEES ---------- */
+el('btnAddEmp').addEventListener('click', ()=>{
+  const nama = el('inputNama').value.trim();
+  const dept = el('inputDept').value.trim();
+  if(!nama){ alert('Nama karyawan wajib diisi.'); return; }
+  employees.push({ id: genId(), nama, departemen: dept });
+  saveEmployees();
+  el('inputNama').value=''; el('inputDept').value='';
+  renderEmployees();
+});
+
+function renderEmployees(){
+  el('empCount').textContent = employees.length ? `(${employees.length})` : '';
+  if(!employees.length){
+    el('empTbody').innerHTML = '<tr><td colspan="3" class="empty-state">Belum ada karyawan. Tambahkan di atas.</td></tr>';
+    return;
+  }
+  el('empTbody').innerHTML = employees.map(emp => `
+    <tr>
+      <td>${escapeHtml(emp.nama)}</td>
+      <td>${escapeHtml(emp.departemen||'-')}</td>
+      <td>
+        <button class="btn-ghost btn-small" data-qr="${emp.id}">🔳 Lihat QR</button>
+        <button class="btn-danger btn-small" data-del="${emp.id}">Hapus</button>
+      </td>
+    </tr>
+  `).join('');
+  el('empTbody').querySelectorAll('[data-qr]').forEach(b=>{
+    b.addEventListener('click', ()=> openQrModal(b.dataset.qr));
+  });
+  el('empTbody').querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(confirm('Hapus karyawan ini? Riwayat absensinya tidak akan dihapus.')){
+        employees = employees.filter(e=>e.id !== b.dataset.del);
+        saveEmployees(); renderEmployees();
+      }
+    });
+  });
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- QR MODAL ---------- */
+let currentQrEmp = null;
+function openQrModal(id){
+  const emp = employees.find(e=>e.id===id);
+  if(!emp) return;
+  currentQrEmp = emp;
+  el('qrModalName').textContent = emp.nama;
+  el('qrModalDept').textContent = emp.departemen || '';
+  el('qrModalImg').src = makeQRDataUrl('ABSEN:'+emp.id, 220);
+  el('qrModal').classList.add('open');
+}
+el('btnCloseModal').addEventListener('click', ()=> el('qrModal').classList.remove('open'));
+el('qrModal').addEventListener('click', (e)=>{ if(e.target.id==='qrModal') el('qrModal').classList.remove('open'); });
+el('btnDownloadQR').addEventListener('click', ()=>{
+  if(!currentQrEmp) return;
+  const a = document.createElement('a');
+  a.href = el('qrModalImg').src;
+  a.download = 'QR-' + currentQrEmp.nama.replace(/[^a-z0-9]+/gi,'-') + '.png';
+  a.click();
+});
+
+/* ---------- PRINT ALL ID CARDS ---------- */
+el('btnPrintCards').addEventListener('click', ()=>{
+  if(!employees.length){ alert('Belum ada karyawan untuk dicetak.'); return; }
+  el('idCards').innerHTML = employees.map(emp => `
+    <div class="id-card">
+      <h4>${escapeHtml(emp.nama)}</h4>
+      <p>${escapeHtml(emp.departemen||'')}</p>
+      <img src="${makeQRDataUrl('ABSEN:'+emp.id, 200)}">
+      <p>ID: ${emp.id}</p>
+    </div>
+  `).join('');
+  window.print();
+});
+
+/* ---------- CAMERA / SCANNING ---------- */
+const video = el('video');
+const scanCanvas = document.createElement('canvas');
+const scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+let stream = null, scanning = false;
+let lastScan = { value:null, time:0 };
+
+el('btnStartCam').addEventListener('click', startCamera);
+el('btnStopCam').addEventListener('click', stopCamera);
+
+async function startCamera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    await video.play();
+    scanning = true;
+    el('btnStartCam').style.display='none';
+    el('btnStopCam').style.display='block';
+    requestAnimationFrame(tick);
+  }catch(err){
+    setScanStatus('Gagal mengakses kamera: ' + err.message, 'err');
+  }
+}
+function stopCamera(){
+  scanning = false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  el('btnStartCam').style.display='block';
+  el('btnStopCam').style.display='none';
+}
+function tick(){
+  if(!scanning) return;
+  if(video.readyState === video.HAVE_ENOUGH_DATA){
+    scanCanvas.width = video.videoWidth;
+    scanCanvas.height = video.videoHeight;
+    scanCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+    const imageData = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if(code && code.data){ handleScan(code.data); }
+  }
+  requestAnimationFrame(tick);
+}
+
+el('btnManualScan').addEventListener('click', ()=>{
+  let v = el('manualId').value.trim();
+  if(!v) return;
+  if(!v.startsWith('ABSEN:')) v = 'ABSEN:' + v;
+  handleScan(v);
+  el('manualId').value = '';
+});
+
+function handleScan(value){
+  const now = Date.now();
+  if(value === lastScan.value && now - lastScan.time < 4000) return;
+  lastScan = { value, time: now };
+  processAttendance(value);
+  beep();
+}
+
+function processAttendance(value){
+  if(!value.startsWith('ABSEN:')){
+    setScanStatus('QR tidak dikenali oleh sistem absensi ini.', 'err');
+    return;
+  }
+  const id = value.slice(6);
+  const emp = employees.find(e => e.id === id);
+  if(!emp){
+    setScanStatus('Karyawan tidak ditemukan. Pastikan QR terdaftar.', 'err');
+    return;
+  }
+  const today = todayStr();
+  let rec = logs.find(l => l.id === id && l.tanggal === today);
+  const t = timeStr();
+  if(!rec){
+    rec = { id, nama: emp.nama, departemen: emp.departemen||'', tanggal: today, jamMasuk: t, jamKeluar: '' };
+    logs.push(rec);
+    saveLogs();
+    setScanStatus(`✅ ${emp.nama} — Absen MASUK pukul ${t}`, 'masuk');
+    addRecent(emp.nama, 'Masuk', t);
+  } else if(!rec.jamKeluar){
+    rec.jamKeluar = t;
+    saveLogs();
+    setScanStatus(`👋 ${emp.nama} — Absen PULANG pukul ${t}`, 'keluar');
+    addRecent(emp.nama, 'Pulang', t);
+  } else {
+    setScanStatus(`⚠️ ${emp.nama} sudah absen masuk & pulang hari ini.`, 'warn');
+  }
+  renderRekap();
+}
+
+function setScanStatus(msg, type){
+  const banner = el('scanStatus');
+  banner.textContent = msg;
+  banner.className = 'status-banner ' + (type ? 'status-'+type : '');
+}
+
+let recentScans = [];
+function addRecent(nama, tipe, t){
+  recentScans.unshift({nama, tipe, t});
+  recentScans = recentScans.slice(0,8);
+  el('recentList').innerHTML = recentScans.map(r => `
+    <div class="recent-item"><span>${escapeHtml(r.nama)} — ${r.tipe}</span><span>${r.t}</span></div>
+  `).join('');
+}
+
+function beep(){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    o.start(); o.stop(ctx.currentTime + 0.12);
+  }catch(e){}
+}
+
+/* ---------- REKAP ---------- */
+el('filterDate').addEventListener('change', renderRekap);
+el('btnClearFilter').addEventListener('click', ()=>{ el('filterDate').value=''; renderRekap(); });
+el('btnClearLogs').addEventListener('click', ()=>{
+  if(confirm('Hapus SEMUA riwayat absensi? Tindakan ini tidak bisa dibatalkan.')){
+    logs = []; saveLogs(); renderRekap();
+  }
+});
+
+function renderRekap(){
+  const filterDate = el('filterDate').value;
+  let data = [...logs].sort((a,b)=> (b.tanggal+b.jamMasuk).localeCompare(a.tanggal+a.jamMasuk));
+  if(filterDate) data = data.filter(l => l.tanggal === filterDate);
+  if(!data.length){
+    el('rekapTbody').innerHTML = '<tr><td colspan="6" class="empty-state">Tidak ada data absensi untuk ditampilkan.</td></tr>';
+    return;
+  }
+  el('rekapTbody').innerHTML = data.map(l => {
+    let pill = l.jamKeluar ? '<span class="pill pill-keluar">Lengkap</span>' : '<span class="pill pill-masuk">Sudah Masuk</span>';
+    return `<tr>
+      <td>${l.tanggal}</td><td>${escapeHtml(l.nama)}</td><td>${escapeHtml(l.departemen||'-')}</td>
+      <td>${l.jamMasuk||'-'}</td><td>${l.jamKeluar||'-'}</td><td>${pill}</td>
+    </tr>`;
+  }).join('');
+}
+
+el('btnExportExcel').addEventListener('click', ()=>{
+  const filterDate = el('filterDate').value;
+  let data = [...logs].sort((a,b)=> (a.tanggal+a.jamMasuk).localeCompare(b.tanggal+b.jamMasuk));
+  if(filterDate) data = data.filter(l => l.tanggal === filterDate);
+  if(!data.length){ alert('Tidak ada data untuk diunduh.'); return; }
+  const rows = data.map(l => ({
+    Tanggal: l.tanggal, Nama: l.nama, Departemen: l.departemen||'',
+    'Jam Masuk': l.jamMasuk||'', 'Jam Keluar': l.jamKeluar||'',
+    Status: l.jamKeluar ? 'Lengkap' : 'Sudah Masuk'
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Rekap Absensi');
+  XLSX.writeFile(wb, 'Rekap-Absensi' + (filterDate ? '-'+filterDate : '') + '.xlsx');
+});
+
+/* ---------- INIT ---------- */
+el('filterDate').value = todayStr();
+renderEmployees();
+renderRekap();
+</script>
+</body>
+</html>
